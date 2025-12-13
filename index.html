@@ -14,32 +14,35 @@
     .wrap { padding:16px; max-width:860px; margin:0 auto; }
     .card { background:#fff; border:1px solid #e6e6e9; border-radius:16px; padding:14px; margin-bottom:12px; box-shadow:0 1px 0 rgba(0,0,0,.02); }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .row > * { flex:1 1 auto; }
-    button { border:0; border-radius:14px; padding:12px 14px; font-weight:700; background:#111; color:#fff; }
+    button { border:0; border-radius:14px; padding:12px 14px; font-weight:800; background:#111; color:#fff; }
     button.secondary { background:#e9e9ee; color:#111; }
     button.danger { background:#c62828; }
     button:disabled { opacity:.5; }
     input, select, textarea { width:100%; padding:12px; border-radius:14px; border:1px solid #d7d7dc; background:#fff; }
-    .big { font-size:18px; padding:14px 16px; border-radius:16px; }
     .muted { color:#666; font-size:13px; }
     .pill { display:inline-block; padding:6px 10px; border-radius:999px; background:#f0f0f4; font-size:12px; }
-    .grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; }
-    .key { font-size:22px; padding:18px 0; border-radius:16px; background:#fff; border:1px solid #e6e6e9; color:#111; }
-    .pinDots { letter-spacing:6px; font-size:22px; font-weight:800; }
+    .hidden { display:none !important; }
+    .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; background:#111; color:#fff; padding:10px 14px; border-radius:14px; display:none; z-index:10; }
+    .staffBtn { width:100%; text-align:left; background:#fff; color:#111; border:1px solid #e6e6e9; }
+    .staffBtn:active { transform: scale(0.99); }
+    .kbd { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; }
+    .key { font-size:22px; padding:16px 0; border-radius:16px; background:#fff; border:1px solid #e6e6e9; color:#111; font-weight:900; }
+    .pinDots { letter-spacing:6px; font-size:22px; font-weight:900; text-align:center; }
     table { width:100%; border-collapse:collapse; }
     th, td { text-align:left; padding:10px 8px; border-bottom:1px solid #eee; font-size:14px; }
-    th { color:#555; font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:.04em;}
+    th { color:#555; font-weight:900; font-size:12px; text-transform:uppercase; letter-spacing:.04em;}
     .right { text-align:right; }
-    .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; background:#111; color:#fff; padding:10px 14px; border-radius:14px; display:none; z-index:10; }
     .tabs { display:flex; gap:8px; }
     .tab { flex:1; }
-    .hidden { display:none !important; }
     .warn { background:#fff3cd; border:1px solid #ffeeba; color:#856404; }
   </style>
 </head>
 <body>
 <header>
-  <h1>Staff Attendance (Offline)</h1>
+  <div class="row" style="align-items:center;">
+    <h1 style="flex:1;">Staff Attendance (Online)</h1>
+    <span id="cloudPill" class="pill">Cloud: off</span>
+  </div>
 </header>
 
 <div class="wrap">
@@ -50,47 +53,49 @@
     <div class="muted">6 digits. Don’t share it with staff.</div>
     <div style="height:10px"></div>
     <div class="row">
-      <div>
-        <input id="setupPin1" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit PIN" />
-      </div>
-      <div>
-        <input id="setupPin2" inputmode="numeric" maxlength="6" placeholder="Re-enter PIN" />
-      </div>
+      <div><input id="setupPin1" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit PIN" /></div>
+      <div><input id="setupPin2" inputmode="numeric" maxlength="6" placeholder="Re-enter PIN" /></div>
     </div>
     <div style="height:10px"></div>
     <button id="setupSave">Save Manager PIN</button>
     <div id="setupErr" class="muted" style="color:#c62828; margin-top:8px;"></div>
   </div>
 
-  <!-- Kiosk -->
-  <div id="kioskCard" class="card">
-    <h2 style="margin:0 0 8px 0;">Kiosk</h2>
+  <!-- KIOSK HOME: Staff list -->
+  <div id="kioskHome" class="card">
     <div class="row">
-      <div>
-        <div class="muted">Enter your 4-digit PIN</div>
-        <div id="pinDots" class="pinDots">----</div>
-      </div>
-      <div class="right">
-        <span id="statusPill" class="pill">Ready</span>
-      </div>
+      <h2 style="margin:0; flex:1;">Kiosk</h2>
+      <span id="kioskPill" class="pill">Select your name</span>
     </div>
-
+    <div class="muted">Tap your name → enter PIN → Clock In/Out → Done</div>
     <div style="height:10px"></div>
-    <div class="grid" id="keypad"></div>
+
+    <div id="staffButtons"></div>
+
+    <div style="height:12px"></div>
+    <button class="secondary" id="btnManagerFromKiosk" style="width:100%;">Manager Control</button>
+    <div class="muted" style="margin-top:8px;">Tip: keep this device on the counter.</div>
+  </div>
+
+  <!-- PIN modal -->
+  <div id="pinCard" class="card hidden">
+    <div class="row">
+      <h2 style="margin:0; flex:1;">Enter PIN</h2>
+      <button class="secondary" id="pinCancel">Cancel</button>
+    </div>
+    <div class="muted">Staff: <strong id="pinStaffName"></strong></div>
+    <div style="height:10px"></div>
+    <div id="pinDots" class="pinDots">----</div>
+    <div style="height:10px"></div>
+
+    <div class="kbd" id="keypad"></div>
 
     <div style="height:12px"></div>
     <div class="row">
-      <button class="big" id="btnAction" disabled>Clock In</button>
-      <button class="big secondary" id="btnClear">Clear</button>
+      <button id="btnClockIn" style="flex:1;" disabled>Clock In</button>
+      <button id="btnClockOut" style="flex:1;" disabled>Clock Out</button>
     </div>
-
-    <div style="height:10px"></div>
-    <div class="row">
-      <button class="secondary" id="btnManager">Manager</button>
-      <button class="secondary" id="btnQuickToday">Today Summary</button>
-    </div>
-
-    <div id="kioskMsg" class="muted" style="margin-top:10px;"></div>
+    <div id="pinMsg" class="muted" style="margin-top:10px;"></div>
   </div>
 
   <!-- Manager Gate -->
@@ -110,8 +115,8 @@
   <!-- Manager Area -->
   <div id="managerCard" class="card hidden">
     <div class="row">
-      <h2 style="margin:0;">Manager</h2>
-      <div class="right"><button class="secondary" id="mgrLock">Lock</button></div>
+      <h2 style="margin:0; flex:1;">Manager</h2>
+      <button class="secondary" id="mgrLock">Lock</button>
     </div>
 
     <div style="height:10px"></div>
@@ -165,7 +170,7 @@
           </div>
         </div>
         <div id="timesWarn" class="card warn hidden" style="margin-top:12px; border-radius:14px;">
-          <strong>Warning:</strong> There are open shifts (not clocked out). Fix them before payroll export.
+          <strong>Warning:</strong> There are open shifts. Fix them before payroll export.
         </div>
         <div style="height:10px"></div>
         <div id="timesTable"></div>
@@ -173,7 +178,7 @@
 
       <div style="height:10px"></div>
       <div class="card" style="margin:0; border-radius:14px;">
-        <strong>Shifts (tap to fix missing clock-out)</strong>
+        <strong>Open Shifts (tap close)</strong>
         <div class="muted">Only open shifts are shown here.</div>
         <div style="height:8px"></div>
         <div id="openShifts"></div>
@@ -205,7 +210,7 @@
       <div style="height:10px"></div>
       <div class="card" style="margin:0; border-radius:14px;">
         <h3 style="margin:0 0 10px 0;">Backup / Restore</h3>
-        <div class="muted">Export a JSON backup so you don’t lose data if phone changes.</div>
+        <div class="muted">Cloud sync helps, but still keep backups.</div>
         <div style="height:10px"></div>
         <div class="row">
           <button class="secondary" id="btnBackup">Generate Backup JSON</button>
@@ -221,37 +226,50 @@
         <div id="wipeErr" class="muted" style="color:#c62828; margin-top:8px;"></div>
       </div>
     </div>
-
   </div>
 
 </div>
 
 <div class="toast" id="toast"></div>
 
+<!-- Firebase (optional but recommended for online sync) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
 <script>
-/*** Storage ***/
-const KEY = "ATT_APP_V1";
+/*** ====== CONFIG: PASTE YOUR FIREBASE CONFIG HERE ======
+const firebaseConfig = { ... };
+======================================================== */
+const firebaseConfig = null; // <-- replace null with your config object
+
+/*** Storage + state ***/
+const KEY_LOCAL = "ATT_APP_V2_LOCAL";
+const KEY_TENANT = "ATT_TENANT_ID"; // one shop
 const defaultState = () => ({
   settings: { managerPinHash: "" },
-  staff: [],        // {id,name,pinHash,rate,isActive}
-  shifts: []        // {id,staffId,in,out,editedByManager,notes}
+  staff: [],   // {id,name,pinHash,rate,isActive}
+  shifts: []   // {id,staffId,in,out,editedByManager,notes}
 });
-let state = load();
 
-function load(){
+let state = loadLocal();
+let tenantId = localStorage.getItem(KEY_TENANT) || "default_shop"; // you can change later
+let cloud = { enabled:false, db:null, doc:null, unsub:null, pushTimer:null, lastRemoteTs:0 };
+
+function loadLocal(){
   try{
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY_LOCAL);
     if(!raw) return defaultState();
     const s = JSON.parse(raw);
     return Object.assign(defaultState(), s);
   } catch { return defaultState(); }
 }
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function saveLocal(){
+  localStorage.setItem(KEY_LOCAL, JSON.stringify(state));
+  scheduleCloudPush();
+}
 function uid(){ return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(); }
 
-/*** Hash (simple, not crypto-grade but OK for local kiosk) ***/
-// NOTE: On web without libraries, use a lightweight hash. If you want true SHA-256, we can add WebCrypto async.
-// For kiosk use, this is enough to avoid storing plain PIN.
+/*** Lightweight hash (local kiosk) ***/
 function hash(str){
   let h = 2166136261;
   for (let i=0;i<str.length;i++){
@@ -267,14 +285,12 @@ function toast(msg){
   const t = $("#toast");
   t.textContent = msg;
   t.style.display = "block";
-  setTimeout(()=> t.style.display="none", 1800);
+  setTimeout(()=> t.style.display="none", 1600);
 }
-function show(el, on=true){ el.classList.toggle("hidden", !on); }
-
+function show(el,on=true){ el.classList.toggle("hidden", !on); }
 function isDigits(s){ return /^[0-9]+$/.test(s); }
 function money2(x){ return Math.round(x*100)/100; }
 function fmtGBP(x){ return "£" + money2(x).toFixed(2); }
-
 function ymd(d){
   const dt = new Date(d);
   const y = dt.getFullYear();
@@ -288,12 +304,6 @@ function hm(d){
   const m = String(dt.getMinutes()).padStart(2,"0");
   return `${h}:${m}`;
 }
-function monthKeyFromISO(iso){
-  const dt = new Date(iso);
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth()+1).padStart(2,"0");
-  return `${y}-${m}`;
-}
 function minutesBetween(a,b){
   const ms = new Date(b) - new Date(a);
   return Math.max(0, Math.floor(ms/60000));
@@ -304,13 +314,72 @@ function minutesToHHMM(min){
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 }
 
+/*** ===== Online sync (Firestore) =====
+We store ONE document: tenants/{tenantId}/data/main
+with fields { state: <object>, updatedAt: <ms> }
+*/
+function initCloud(){
+  if(!firebaseConfig){ $("#cloudPill").textContent = "Cloud: off"; return; }
+
+  try{
+    firebase.initializeApp(firebaseConfig);
+    cloud.db = firebase.firestore();
+    cloud.doc = cloud.db.collection("tenants").doc(tenantId).collection("data").doc("main");
+    cloud.enabled = true;
+    $("#cloudPill").textContent = "Cloud: on";
+    listenCloud();
+    scheduleCloudPush(); // push local if cloud empty
+  } catch(e){
+    cloud.enabled = false;
+    $("#cloudPill").textContent = "Cloud: error";
+    console.log(e);
+  }
+}
+
+function listenCloud(){
+  if(!cloud.enabled) return;
+  if(cloud.unsub) cloud.unsub();
+
+  cloud.unsub = cloud.doc.onSnapshot((snap)=>{
+    if(!snap.exists) return;
+    const data = snap.data();
+    const ts = data.updatedAt || 0;
+
+    // ignore if it's our own recent push
+    if(ts <= cloud.lastRemoteTs) return;
+
+    // merge: remote replaces local (simple + consistent)
+    if(data.state){
+      state = Object.assign(defaultState(), data.state);
+      cloud.lastRemoteTs = ts;
+      localStorage.setItem(KEY_LOCAL, JSON.stringify(state));
+      renderAll();
+      toast("Synced from cloud");
+    }
+  });
+}
+
+function scheduleCloudPush(){
+  if(!cloud.enabled) return;
+  if(cloud.pushTimer) clearTimeout(cloud.pushTimer);
+  cloud.pushTimer = setTimeout(pushCloud, 600); // debounce
+}
+
+async function pushCloud(){
+  if(!cloud.enabled) return;
+  try{
+    const ts = Date.now();
+    await cloud.doc.set({ state, updatedAt: ts }, { merge:true });
+    cloud.lastRemoteTs = ts;
+  } catch(e){
+    console.log(e);
+    $("#cloudPill").textContent = "Cloud: offline";
+  }
+}
+
 /*** Setup manager PIN ***/
 function needsSetup(){ return !state.settings.managerPinHash; }
 
-function renderSetup(){
-  show($("#setupCard"), needsSetup());
-  show($("#kioskCard"), !needsSetup());
-}
 $("#setupSave").onclick = () => {
   const p1 = $("#setupPin1").value.trim();
   const p2 = $("#setupPin2").value.trim();
@@ -319,80 +388,76 @@ $("#setupSave").onclick = () => {
   if(p1.length!==6 || !isDigits(p1)){ err.textContent="PIN must be exactly 6 digits"; return; }
   if(p1!==p2){ err.textContent="PINs do not match"; return; }
   state.settings.managerPinHash = hash(p1);
-  save();
+  saveLocal();
   $("#setupPin1").value=""; $("#setupPin2").value="";
   toast("Manager PIN set");
-  renderSetup();
+  renderAll();
 };
 
-/*** Kiosk keypad ***/
+/*** Kiosk home: staff name list ***/
+function renderKioskStaffButtons(){
+  const box = $("#staffButtons");
+  const active = state.staff.filter(s=>s.isActive).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  if(!active.length){
+    box.innerHTML = `<div class="muted">No staff yet. Tap “Manager Control” to add staff.</div>`;
+    return;
+  }
+  box.innerHTML = active.map(s => `
+    <button class="staffBtn" style="margin:6px 0;" onclick="selectStaff('${s.id}')">
+      <div class="row" style="align-items:center;">
+        <div style="flex:1;"><strong>${s.name}</strong><div class="muted">${fmtGBP(s.rate)}/hr</div></div>
+        <div class="right"><span class="pill">Tap</span></div>
+      </div>
+    </button>
+  `).join("");
+}
+
+let selectedStaff = null;
 let pin4 = "";
-let kioskStaff = null;
-let kioskOpenShift = null;
+let pinVerified = false;
+
+window.selectStaff = function(staffId){
+  selectedStaff = state.staff.find(s=>s.id===staffId) || null;
+  if(!selectedStaff) return;
+  pin4 = "";
+  pinVerified = false;
+  $("#pinStaffName").textContent = selectedStaff.name;
+  $("#pinMsg").textContent = "Enter your 4-digit PIN";
+  $("#btnClockIn").disabled = true;
+  $("#btnClockOut").disabled = true;
+  renderDots();
+  show($("#kioskHome"), false);
+  show($("#pinCard"), true);
+};
 
 function renderDots(){
   $("#pinDots").textContent = pin4.padEnd(4,"-").split("").map(c => c==="-"? "-" : "•").join("");
 }
-function setKioskMsg(msg){ $("#kioskMsg").textContent = msg || ""; }
-function setPill(text){ $("#statusPill").textContent = text; }
 
-function findStaffByPin(pin){
-  const h = hash(pin);
-  return state.staff.find(s => s.isActive && s.pinHash === h) || null;
-}
 function findOpenShift(staffId){
-  // latest open shift
   const open = state.shifts.filter(sh => sh.staffId===staffId && !sh.out);
   return open.length ? open[open.length-1] : null;
 }
 
-function refreshKioskAction(){
-  const btn = $("#btnAction");
-  if(!kioskStaff){ btn.disabled = true; btn.textContent="Clock In"; return; }
-  kioskOpenShift = findOpenShift(kioskStaff.id);
-  if(kioskOpenShift){
-    btn.disabled = false;
-    btn.textContent = "Clock Out";
-    setPill("CLOCKED IN");
-    setKioskMsg(`${kioskStaff.name} clocked in at ${hm(kioskOpenShift.in)} (${ymd(kioskOpenShift.in)})`);
+function updateClockButtons(){
+  if(!selectedStaff || !pinVerified){
+    $("#btnClockIn").disabled = true;
+    $("#btnClockOut").disabled = true;
+    return;
+  }
+  const open = findOpenShift(selectedStaff.id);
+  if(open){
+    $("#btnClockIn").disabled = true;
+    $("#btnClockOut").disabled = false;
+    $("#pinMsg").textContent = `You are CLOCKED IN since ${hm(open.in)} (${ymd(open.in)})`;
   } else {
-    btn.disabled = false;
-    btn.textContent = "Clock In";
-    setPill("CLOCKED OUT");
-    setKioskMsg(`${kioskStaff.name} is currently out`);
+    $("#btnClockIn").disabled = false;
+    $("#btnClockOut").disabled = true;
+    $("#pinMsg").textContent = "You are CLOCKED OUT";
   }
 }
 
-function enterDigit(d){
-  if(pin4.length>=4) return;
-  pin4 += d;
-  renderDots();
-  if(pin4.length===4){
-    kioskStaff = findStaffByPin(pin4);
-    if(!kioskStaff){
-      setPill("Invalid PIN");
-      setKioskMsg("No active staff found");
-      toast("Invalid PIN");
-      pin4 = "";
-      renderDots();
-      kioskStaff = null;
-      kioskOpenShift = null;
-      $("#btnAction").disabled = true;
-      $("#btnAction").textContent = "Clock In";
-      return;
-    }
-    toast(`Hi, ${kioskStaff.name}`);
-    refreshKioskAction();
-    pin4 = "";
-    renderDots();
-  }
-}
-
-function clearPin(){
-  pin4="";
-  renderDots();
-}
-
+/*** PIN keypad ***/
 function buildKeypad(){
   const keys = ["1","2","3","4","5","6","7","8","9","⌫","0","OK"];
   const kp = $("#keypad");
@@ -402,44 +467,75 @@ function buildKeypad(){
     b.className="key";
     b.textContent=k;
     b.onclick = ()=>{
-      if(k==="⌫"){
-        // backspace for current entry
-        if(pin4.length>0){ pin4=pin4.slice(0,-1); renderDots(); }
-        return;
-      }
-      if(k==="OK"){
-        // OK not needed because we auto lookup at 4 digits; keep for user habit
-        return;
-      }
-      enterDigit(k);
+      if(k==="⌫"){ if(pin4.length>0){ pin4=pin4.slice(0,-1); renderDots(); } return; }
+      if(k==="OK"){ return; }
+      if(pin4.length>=4) return;
+      pin4 += k;
+      renderDots();
+      if(pin4.length===4) verifyPin();
     };
     kp.appendChild(b);
   });
 }
-buildKeypad(); renderDots();
+buildKeypad();
 
-$("#btnClear").onclick = () => { clearPin(); kioskStaff=null; kioskOpenShift=null; $("#btnAction").disabled=true; setPill("Ready"); setKioskMsg(""); };
-
-$("#btnAction").onclick = () => {
-  if(!kioskStaff) return;
-  const now = new Date().toISOString();
-  const open = findOpenShift(kioskStaff.id);
-  if(open){
-    open.out = now;
-    save();
-    toast("Clocked out");
-  } else {
-    state.shifts.push({ id: uid(), staffId: kioskStaff.id, in: now, out: null, editedByManager:false, notes:"" });
-    save();
-    toast("Clocked in");
+function verifyPin(){
+  if(!selectedStaff) return;
+  const ok = hash(pin4) === selectedStaff.pinHash;
+  pin4 = "";
+  renderDots();
+  if(!ok){
+    pinVerified = false;
+    $("#pinMsg").textContent = "Wrong PIN ❌";
+    toast("Wrong PIN");
+    updateClockButtons();
+    return;
   }
-  refreshKioskAction();
+  pinVerified = true;
+  toast("PIN accepted");
+  updateClockButtons();
+}
+
+$("#pinCancel").onclick = () => {
+  show($("#pinCard"), false);
+  show($("#kioskHome"), true);
+};
+
+/*** Clock actions -> done -> back to kiosk list ***/
+function doneReturn(msg){
+  toast(msg);
+  setTimeout(()=>{
+    show($("#pinCard"), false);
+    show($("#kioskHome"), true);
+    selectedStaff = null;
+    pinVerified = false;
+    pin4 = "";
+    renderDots();
+    renderKioskStaffButtons();
+  }, 600);
+}
+
+$("#btnClockIn").onclick = () => {
+  if(!selectedStaff || !pinVerified) return;
+  if(findOpenShift(selectedStaff.id)){ toast("Already clocked in"); return; }
+  state.shifts.push({ id: uid(), staffId: selectedStaff.id, in: new Date().toISOString(), out: null, editedByManager:false, notes:"" });
+  saveLocal();
+  doneReturn("Done ✅ Clocked in");
+};
+
+$("#btnClockOut").onclick = () => {
+  if(!selectedStaff || !pinVerified) return;
+  const open = findOpenShift(selectedStaff.id);
+  if(!open){ toast("Not clocked in"); return; }
+  open.out = new Date().toISOString();
+  saveLocal();
+  doneReturn("Done ✅ Clocked out");
 };
 
 /*** Manager gate + tabs ***/
 let managerUnlocked = false;
 let lockTimer = null;
-const AUTO_LOCK_MS = 60 * 1000; // 60s
+const AUTO_LOCK_MS = 60*1000;
 
 function resetAutoLock(){
   if(lockTimer) clearTimeout(lockTimer);
@@ -452,21 +548,25 @@ function lockManager(){
   managerUnlocked = false;
   show($("#managerCard"), false);
   show($("#mgrGateCard"), false);
-  show($("#kioskCard"), true);
+  show($("#kioskHome"), true);
+  show($("#pinCard"), false);
   $("#mgrPin").value="";
   $("#mgrErr").textContent="";
 }
 
-$("#btnManager").onclick = () => {
+function openManagerGate(){
   if(needsSetup()){ toast("Set Manager PIN first"); return; }
-  show($("#kioskCard"), false);
+  show($("#kioskHome"), false);
+  show($("#pinCard"), false);
   show($("#mgrGateCard"), true);
   $("#mgrPin").focus();
-};
+}
+
+$("#btnManagerFromKiosk").onclick = openManagerGate;
 
 $("#mgrCancel").onclick = () => {
   show($("#mgrGateCard"), false);
-  show($("#kioskCard"), true);
+  show($("#kioskHome"), true);
 };
 
 $("#mgrUnlock").onclick = () => {
@@ -485,29 +585,27 @@ $("#mgrUnlock").onclick = () => {
 
 $("#mgrLock").onclick = () => lockManager();
 
-/*** Staff Management ***/
+/*** Staff management ***/
 let editingStaffId = null;
 
 function renderStaffList(){
   const list = $("#staffList");
   const items = state.staff.slice().sort((a,b)=> (a.name||"").localeCompare(b.name||""));
-  if(!items.length){ list.innerHTML = `<div class="muted">No staff yet. Add your first staff above.</div>`; return; }
+  if(!items.length){ list.innerHTML = `<div class="muted">No staff yet.</div>`; return; }
 
   list.innerHTML = items.map(s => {
     const pill = s.isActive ? `<span class="pill">Active</span>` : `<span class="pill">Inactive</span>`;
     return `
-      <div style="padding:10px 0; border-bottom:1px solid #eee;">
+      <div style="padding:10px 0; border-bottom:1px solid #eee; cursor:pointer;">
         <div class="row">
-          <div><strong>${s.name}</strong> <span class="muted">(${fmtGBP(s.rate)}/hr)</span></div>
+          <div style="flex:1;"><strong>${s.name}</strong> <span class="muted">(${fmtGBP(s.rate)}/hr)</span></div>
           <div class="right">${pill}</div>
         </div>
       </div>
     `;
   }).join("");
 
-  // clickable rows (simple: re-render with click binding)
   Array.from(list.children).forEach((div, idx) => {
-    div.style.cursor = "pointer";
     div.onclick = () => loadStaffForEdit(items[idx]);
   });
 }
@@ -515,7 +613,7 @@ function renderStaffList(){
 function loadStaffForEdit(s){
   editingStaffId = s.id;
   $("#sName").value = s.name;
-  $("#sPin").value = ""; // only set if changing
+  $("#sPin").value = "";
   $("#sRate").value = String(s.rate);
   $("#staffDeactivate").disabled = !s.isActive;
   toast("Editing staff");
@@ -545,15 +643,14 @@ $("#staffSave").onclick = () => {
   if(!name){ err.textContent="Name is required"; return; }
   if(Number.isNaN(rate) || rate<=0){ err.textContent="Hourly rate must be > 0"; return; }
 
-  // For edit: PIN can be blank (means no change). For add: PIN required.
   if(!editingStaffId){
     if(pin.length!==4 || !isDigits(pin)){ err.textContent="PIN must be exactly 4 digits"; return; }
-    if(pinInUse(pin)){ err.textContent="That PIN is already used by another staff"; return; }
+    if(pinInUse(pin)){ err.textContent="That PIN is already used"; return; }
     state.staff.push({ id: uid(), name, pinHash: hash(pin), rate, isActive:true });
-    save();
+    saveLocal();
     toast("Staff added");
     resetStaffForm();
-    renderStaffList();
+    renderAll();
     return;
   } else {
     const s = state.staff.find(x => x.id===editingStaffId);
@@ -563,13 +660,13 @@ $("#staffSave").onclick = () => {
 
     if(pin){
       if(pin.length!==4 || !isDigits(pin)){ err.textContent="PIN must be exactly 4 digits"; return; }
-      if(pinInUse(pin, s.id)){ err.textContent="That PIN is already used by another staff"; return; }
+      if(pinInUse(pin, s.id)){ err.textContent="That PIN is already used"; return; }
       s.pinHash = hash(pin);
     }
-    save();
+    saveLocal();
     toast("Staff updated");
     resetStaffForm();
-    renderStaffList();
+    renderAll();
   }
 };
 
@@ -580,15 +677,14 @@ $("#staffDeactivate").onclick = () => {
   const s = state.staff.find(x => x.id===editingStaffId);
   if(!s) return;
   s.isActive = false;
-  save();
+  saveLocal();
   toast("Staff deactivated");
   resetStaffForm();
-  renderStaffList();
+  renderAll();
 };
 
-/*** Timesheets ***/
+/*** Timesheets + export + backup (same logic, online-safe) ***/
 function monthRange(monthStr){
-  // monthStr: YYYY-MM
   const [y,m] = monthStr.split("-").map(Number);
   const start = new Date(y, m-1, 1, 0,0,0,0);
   const end = new Date(y, m, 1, 0,0,0,0);
@@ -686,14 +782,12 @@ function renderOpenShifts(monthStr){
     return `
       <div class="card" style="margin:8px 0; border-radius:14px;">
         <div class="row">
-          <div><strong>${name}</strong></div>
+          <div style="flex:1;"><strong>${name}</strong></div>
           <div class="right"><span class="pill">OPEN</span></div>
         </div>
         <div class="muted">Clock-in: ${ymd(sh.in)} ${hm(sh.in)}</div>
         <div style="height:8px"></div>
-        <div class="row">
-          <button class="secondary" onclick="closeShift('${sh.id}')">Close Now</button>
-        </div>
+        <button class="secondary" onclick="closeShift('${sh.id}')">Close Now</button>
       </div>
     `;
   }).join("");
@@ -704,12 +798,11 @@ window.closeShift = function(shiftId){
   if(!sh) return;
   sh.out = new Date().toISOString();
   sh.editedByManager = true;
-  save();
+  saveLocal();
   toast("Shift closed");
   renderTimesheets();
 };
 
-/*** Export CSV + Backup ***/
 function payrollCSV(monthStr){
   const {rows} = buildMonthlyPayroll(monthStr);
   const header = ["Month","StaffName","HourlyRate","TotalMinutes","TotalHHMM","TotalHoursDecimal","TotalPay"];
@@ -745,18 +838,15 @@ function downloadText(filename, text){
 $("#btnExportCSV").onclick = () => {
   const m = $("#exportMonth").value;
   if(!m){ toast("Pick a month"); return; }
-  const csv = payrollCSV(m);
-  $("#csvOut").value = csv;
+  $("#csvOut").value = payrollCSV(m);
   toast("CSV ready");
 };
-
 $("#btnCopyCSV").onclick = async () => {
   const txt = $("#csvOut").value;
   if(!txt){ toast("Nothing to copy"); return; }
   await navigator.clipboard.writeText(txt);
   toast("Copied");
 };
-
 $("#btnDownloadCSV").onclick = () => {
   const m = $("#exportMonth").value || "payroll";
   const txt = $("#csvOut").value;
@@ -766,7 +856,7 @@ $("#btnDownloadCSV").onclick = () => {
 };
 
 $("#btnBackup").onclick = () => {
-  $("#backupOut").value = JSON.stringify(state, null, 2);
+  $("#backupOut").value = JSON.stringify({ tenantId, state }, null, 2);
   toast("Backup generated");
 };
 $("#btnCopyBackup").onclick = async () => {
@@ -779,15 +869,15 @@ $("#btnRestore").onclick = () => {
   const txt = $("#backupOut").value.trim();
   if(!txt){ toast("Paste backup JSON first"); return; }
   try{
-    const s = JSON.parse(txt);
-    if(!s.settings || !("managerPinHash" in s.settings)) throw new Error("bad");
-    state = Object.assign(defaultState(), s);
-    save();
+    const obj = JSON.parse(txt);
+    if(obj.tenantId) tenantId = obj.tenantId;
+    if(!obj.state || !obj.state.settings) throw new Error("bad");
+    state = Object.assign(defaultState(), obj.state);
+    localStorage.setItem(KEY_TENANT, tenantId);
+    saveLocal();
     toast("Restored");
-    // refresh UI
     lockManager();
-    renderSetup();
-    renderStaffList();
+    renderAll();
   } catch(e){
     toast("Invalid backup JSON");
   }
@@ -796,13 +886,12 @@ $("#btnRestore").onclick = () => {
 $("#btnWipe").onclick = () => {
   const confirmText = prompt("Type WIPE to delete all data:");
   if(confirmText !== "WIPE"){ $("#wipeErr").textContent="Cancelled"; return; }
-  localStorage.removeItem(KEY);
-  state = load();
+  localStorage.removeItem(KEY_LOCAL);
+  state = loadLocal();
   $("#wipeErr").textContent="";
   toast("All data wiped");
   lockManager();
-  renderSetup();
-  renderStaffList();
+  renderAll();
 };
 
 /*** Tabs ***/
@@ -813,22 +902,14 @@ function switchTab(which){
   $("#tabStaff").classList.toggle("secondary", which!=="staff");
   $("#tabTimes").classList.toggle("secondary", which!=="times");
   $("#tabExport").classList.toggle("secondary", which!=="export");
-  renderStaffList();
   if(which==="times") renderTimesheets();
 }
 $("#tabStaff").onclick = ()=> switchTab("staff");
 $("#tabTimes").onclick = ()=> switchTab("times");
 $("#tabExport").onclick = ()=> switchTab("export");
+$("#refreshTimes").onclick = renderTimesheets;
 
-/*** Today summary ***/
-$("#btnQuickToday").onclick = () => {
-  const today = ymd(new Date());
-  const todays = state.shifts.filter(sh => ymd(sh.in)===today);
-  const open = todays.filter(sh=>!sh.out).length;
-  toast(`Today: ${todays.length} shifts, ${open} open`);
-};
-
-/*** Init defaults ***/
+/*** Init ***/
 function initMonthPickers(){
   const now = new Date();
   const y = now.getFullYear();
@@ -837,13 +918,20 @@ function initMonthPickers(){
   $("#monthPick").value = val;
   $("#exportMonth").value = val;
 }
-$("#refreshTimes").onclick = renderTimesheets;
+
+function renderAll(){
+  show($("#setupCard"), needsSetup());
+  show($("#kioskHome"), !needsSetup() && !managerUnlocked);
+  show($("#pinCard"), false);
+  show($("#mgrGateCard"), false);
+  renderKioskStaffButtons();
+  renderStaffList();
+  initMonthPickers();
+}
 
 initMonthPickers();
-renderSetup();
-renderStaffList();
-setPill("Ready");
-setKioskMsg("Add staff in Manager → Staff, then staff can clock in/out with their PIN.");
+renderAll();
+initCloud();
 </script>
 </body>
 </html>
