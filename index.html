@@ -403,13 +403,16 @@ function renderKioskStaffButtons(){
     return;
   }
   box.innerHTML = active.map(s => `
-    <button class="staffBtn" style="margin:6px 0;" onclick="selectStaff('${s.id}')">
-      <div class="row" style="align-items:center;">
-        <div style="flex:1;"><strong>${s.name}</strong><div class="muted">${fmtGBP(s.rate)}/hr</div></div>
-        <div class="right"><span class="pill">Tap</span></div>
+  <button class="staffBtn" style="margin:6px 0;" onclick="selectStaff('${s.id}')">
+    <div class="row" style="align-items:center;">
+      <div style="flex:1;">
+        <strong>${s.name}</strong>
       </div>
-    </button>
-  `).join("");
+      <div class="right"><span class="pill">Tap</span></div>
+    </div>
+  </button>
+`).join("");
+
 }
 
 let selectedStaff = null;
@@ -935,3 +938,4 @@ initCloud();
 </script>
 </body>
 </html>
+
