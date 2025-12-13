@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Staff Attendance</title>
+  <style>
+    :root { font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial; }
+    body { margin:0; background:#f6f6f7; color:#111; }
+    header { padding:14px 16px; background:#fff; border-bottom:1px solid #e6e6e9; position:sticky; top:0; z-index:5;}
+    header h1 { margin:0; font-size:18px; }
+    .wrap { padding:16px; max-width:860px; margin:0 auto; }
+    .card { background:#fff; border:1px solid #e6e6e9; border-radius:16px; padding:14px; margin-bottom:12px; box-shadow:0 1px 0 rgba(0,0,0,.02); }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .row > * { flex:1 1 auto; }
+    button { border:0; border-radius:14px; padding:12px 14px; font-weight:700; background:#111; color:#fff; }
+    button.secondary { background:#e9e9ee; color:#111; }
+    button.danger { background:#c62828; }
+    button:disabled { opacity:.5; }
+    input, select, textarea { width:100%; padding:12px; border-radius:14px; border:1px solid #d7d7dc; background:#fff; }
+    .big { font-size:18px; padding:14px 16px; border-radius:16px; }
+    .muted { color:#666; font-size:13px; }
+    .pill { display:inline-block; padding:6px 10px; border-radius:999px; background:#f0f0f4; font-size:12px; }
+    .grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; }
+    .key { font-size:22px; padding:18px 0; border-radius:16px; background:#fff; border:1px solid #e6e6e9; color:#111; }
+    .pinDots { letter-spacing:6px; font-size:22px; font-weight:800; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:10px 8px; border-bottom:1px solid #eee; font-size:14px; }
+    th { color:#555; font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:.04em;}
+    .right { text-align:right; }
+    .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; background:#111; color:#fff; padding:10px 14px; border-radius:14px; display:none; z-index:10; }
+    .tabs { display:flex; gap:8px; }
+    .tab { flex:1; }
+    .hidden { display:none !important; }
+    .warn { background:#fff3cd; border:1px solid #ffeeba; color:#856404; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Staff Attendance (Offline)</h1>
+</header>
+
+<div class="wrap">
+
+  <!-- First-run setup -->
+  <div id="setupCard" class="card hidden">
+    <h2 style="margin:0 0 8px 0;">Set Manager PIN</h2>
+    <div class="muted">6 digits. Don’t share it with staff.</div>
+    <div style="height:10px"></div>
+    <div class="row">
+      <div>
+        <input id="setupPin1" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit PIN" />
+      </div>
+      <div>
+        <input id="setupPin2" inputmode="numeric" maxlength="6" placeholder="Re-enter PIN" />
+      </div>
+    </div>
+    <div style="height:10px"></div>
+    <button id="setupSave">Save Manager PIN</button>
+    <div id="setupErr" class="muted" style="color:#c62828; margin-top:8px;"></div>
+  </div>
+
+  <!-- Kiosk -->
+  <div id="kioskCard" class="card">
+    <h2 style="margin:0 0 8px 0;">Kiosk</h2>
+    <div class="row">
+      <div>
+        <div class="muted">Enter your 4-digit PIN</div>
+        <div id="pinDots" class="pinDots">----</div>
+      </div>
+      <div class="right">
+        <span id="statusPill" class="pill">Ready</span>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+    <div class="grid" id="keypad"></div>
+
+    <div style="height:12px"></div>
+    <div class="row">
+      <button class="big" id="btnAction" disabled>Clock In</button>
+      <button class="big secondary" id="btnClear">Clear</button>
+    </div>
+
+    <div style="height:10px"></div>
+    <div class="row">
+      <button class="secondary" id="btnManager">Manager</button>
+      <button class="secondary" id="btnQuickToday">Today Summary</button>
+    </div>
+
+    <div id="kioskMsg" class="muted" style="margin-top:10px;"></div>
+  </div>
+
+  <!-- Manager Gate -->
+  <div id="mgrGateCard" class="card hidden">
+    <h2 style="margin:0 0 8px 0;">Manager Access</h2>
+    <div class="muted">Enter 6-digit Manager PIN</div>
+    <div style="height:10px"></div>
+    <input id="mgrPin" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" />
+    <div style="height:10px"></div>
+    <div class="row">
+      <button id="mgrUnlock">Unlock</button>
+      <button class="secondary" id="mgrCancel">Cancel</button>
+    </div>
+    <div id="mgrErr" class="muted" style="color:#c62828; margin-top:8px;"></div>
+  </div>
+
+  <!-- Manager Area -->
+  <div id="managerCard" class="card hidden">
+    <div class="row">
+      <h2 style="margin:0;">Manager</h2>
+      <div class="right"><button class="secondary" id="mgrLock">Lock</button></div>
+    </div>
+
+    <div style="height:10px"></div>
+    <div class="tabs">
+      <button class="tab secondary" id="tabStaff">Staff</button>
+      <button class="tab secondary" id="tabTimes">Timesheets</button>
+      <button class="tab secondary" id="tabExport">Export/Backup</button>
+    </div>
+
+    <div style="height:12px"></div>
+
+    <!-- Staff tab -->
+    <div id="paneStaff">
+      <div class="card" style="margin:0; border-radius:14px;">
+        <h3 style="margin:0 0 10px 0;">Add / Edit Staff</h3>
+        <div class="row">
+          <div><input id="sName" placeholder="Name" /></div>
+          <div><input id="sPin" inputmode="numeric" maxlength="4" placeholder="4-digit PIN" /></div>
+          <div><input id="sRate" inputmode="decimal" placeholder="Hourly Rate (£)" /></div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="row">
+          <button id="staffSave">Save Staff</button>
+          <button class="secondary" id="staffReset">Reset</button>
+          <button class="danger" id="staffDeactivate" disabled>Deactivate</button>
+        </div>
+        <div id="staffErr" class="muted" style="color:#c62828; margin-top:8px;"></div>
+      </div>
+
+      <div style="height:10px"></div>
+      <div class="card" style="margin:0; border-radius:14px;">
+        <div class="row">
+          <div><strong>Staff List</strong></div>
+          <div class="right"><span class="muted">Tap a staff to edit</span></div>
+        </div>
+        <div style="height:8px"></div>
+        <div id="staffList"></div>
+      </div>
+    </div>
+
+    <!-- Timesheets tab -->
+    <div id="paneTimes" class="hidden">
+      <div class="card" style="margin:0; border-radius:14px;">
+        <div class="row">
+          <div>
+            <div class="muted">Month</div>
+            <input id="monthPick" type="month" />
+          </div>
+          <div class="right">
+            <button class="secondary" id="refreshTimes">Refresh</button>
+          </div>
+        </div>
+        <div id="timesWarn" class="card warn hidden" style="margin-top:12px; border-radius:14px;">
+          <strong>Warning:</strong> There are open shifts (not clocked out). Fix them before payroll export.
+        </div>
+        <div style="height:10px"></div>
+        <div id="timesTable"></div>
+      </div>
+
+      <div style="height:10px"></div>
+      <div class="card" style="margin:0; border-radius:14px;">
+        <strong>Shifts (tap to fix missing clock-out)</strong>
+        <div class="muted">Only open shifts are shown here.</div>
+        <div style="height:8px"></div>
+        <div id="openShifts"></div>
+      </div>
+    </div>
+
+    <!-- Export tab -->
+    <div id="paneExport" class="hidden">
+      <div class="card" style="margin:0; border-radius:14px;">
+        <h3 style="margin:0 0 10px 0;">CSV Export (Monthly Payroll)</h3>
+        <div class="row">
+          <div>
+            <div class="muted">Month</div>
+            <input id="exportMonth" type="month" />
+          </div>
+          <div class="right">
+            <button id="btnExportCSV">Generate CSV</button>
+          </div>
+        </div>
+        <div style="height:10px"></div>
+        <textarea id="csvOut" rows="8" placeholder="CSV will appear here..."></textarea>
+        <div style="height:10px"></div>
+        <div class="row">
+          <button class="secondary" id="btnCopyCSV">Copy CSV</button>
+          <button class="secondary" id="btnDownloadCSV">Download CSV</button>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+      <div class="card" style="margin:0; border-radius:14px;">
+        <h3 style="margin:0 0 10px 0;">Backup / Restore</h3>
+        <div class="muted">Export a JSON backup so you don’t lose data if phone changes.</div>
+        <div style="height:10px"></div>
+        <div class="row">
+          <button class="secondary" id="btnBackup">Generate Backup JSON</button>
+          <button class="secondary" id="btnRestore">Restore from JSON</button>
+        </div>
+        <div style="height:10px"></div>
+        <textarea id="backupOut" rows="8" placeholder="Backup JSON appears here..."></textarea>
+        <div style="height:10px"></div>
+        <div class="row">
+          <button class="secondary" id="btnCopyBackup">Copy Backup</button>
+          <button class="danger" id="btnWipe">WIPE ALL DATA</button>
+        </div>
+        <div id="wipeErr" class="muted" style="color:#c62828; margin-top:8px;"></div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/*** Storage ***/
+const KEY = "ATT_APP_V1";
+const defaultState = () => ({
+  settings: { managerPinHash: "" },
+  staff: [],        // {id,name,pinHash,rate,isActive}
+  shifts: []        // {id,staffId,in,out,editedByManager,notes}
+});
+let state = load();
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return defaultState();
+    const s = JSON.parse(raw);
+    return Object.assign(defaultState(), s);
+  } catch { return defaultState(); }
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function uid(){ return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(); }
+
+/*** Hash (simple, not crypto-grade but OK for local kiosk) ***/
+// NOTE: On web without libraries, use a lightweight hash. If you want true SHA-256, we can add WebCrypto async.
+// For kiosk use, this is enough to avoid storing plain PIN.
+function hash(str){
+  let h = 2166136261;
+  for (let i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h += (h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24);
+  }
+  return ("00000000" + (h>>>0).toString(16)).slice(-8);
+}
+
+/*** UI helpers ***/
+const $ = sel => document.querySelector(sel);
+function toast(msg){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(()=> t.style.display="none", 1800);
+}
+function show(el, on=true){ el.classList.toggle("hidden", !on); }
+
+function isDigits(s){ return /^[0-9]+$/.test(s); }
+function money2(x){ return Math.round(x*100)/100; }
+function fmtGBP(x){ return "£" + money2(x).toFixed(2); }
+
+function ymd(d){
+  const dt = new Date(d);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth()+1).padStart(2,"0");
+  const da = String(dt.getDate()).padStart(2,"0");
+  return `${y}-${m}-${da}`;
+}
+function hm(d){
+  const dt = new Date(d);
+  const h = String(dt.getHours()).padStart(2,"0");
+  const m = String(dt.getMinutes()).padStart(2,"0");
+  return `${h}:${m}`;
+}
+function monthKeyFromISO(iso){
+  const dt = new Date(iso);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth()+1).padStart(2,"0");
+  return `${y}-${m}`;
+}
+function minutesBetween(a,b){
+  const ms = new Date(b) - new Date(a);
+  return Math.max(0, Math.floor(ms/60000));
+}
+function minutesToHHMM(min){
+  const h = Math.floor(min/60);
+  const m = min%60;
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+}
+
+/*** Setup manager PIN ***/
+function needsSetup(){ return !state.settings.managerPinHash; }
+
+function renderSetup(){
+  show($("#setupCard"), needsSetup());
+  show($("#kioskCard"), !needsSetup());
+}
+$("#setupSave").onclick = () => {
+  const p1 = $("#setupPin1").value.trim();
+  const p2 = $("#setupPin2").value.trim();
+  const err = $("#setupErr");
+  err.textContent = "";
+  if(p1.length!==6 || !isDigits(p1)){ err.textContent="PIN must be exactly 6 digits"; return; }
+  if(p1!==p2){ err.textContent="PINs do not match"; return; }
+  state.settings.managerPinHash = hash(p1);
+  save();
+  $("#setupPin1").value=""; $("#setupPin2").value="";
+  toast("Manager PIN set");
+  renderSetup();
+};
+
+/*** Kiosk keypad ***/
+let pin4 = "";
+let kioskStaff = null;
+let kioskOpenShift = null;
+
+function renderDots(){
+  $("#pinDots").textContent = pin4.padEnd(4,"-").split("").map(c => c==="-"? "-" : "•").join("");
+}
+function setKioskMsg(msg){ $("#kioskMsg").textContent = msg || ""; }
+function setPill(text){ $("#statusPill").textContent = text; }
+
+function findStaffByPin(pin){
+  const h = hash(pin);
+  return state.staff.find(s => s.isActive && s.pinHash === h) || null;
+}
+function findOpenShift(staffId){
+  // latest open shift
+  const open = state.shifts.filter(sh => sh.staffId===staffId && !sh.out);
+  return open.length ? open[open.length-1] : null;
+}
+
+function refreshKioskAction(){
+  const btn = $("#btnAction");
+  if(!kioskStaff){ btn.disabled = true; btn.textContent="Clock In"; return; }
+  kioskOpenShift = findOpenShift(kioskStaff.id);
+  if(kioskOpenShift){
+    btn.disabled = false;
+    btn.textContent = "Clock Out";
+    setPill("CLOCKED IN");
+    setKioskMsg(`${kioskStaff.name} clocked in at ${hm(kioskOpenShift.in)} (${ymd(kioskOpenShift.in)})`);
+  } else {
+    btn.disabled = false;
+    btn.textContent = "Clock In";
+    setPill("CLOCKED OUT");
+    setKioskMsg(`${kioskStaff.name} is currently out`);
+  }
+}
+
+function enterDigit(d){
+  if(pin4.length>=4) return;
+  pin4 += d;
+  renderDots();
+  if(pin4.length===4){
+    kioskStaff = findStaffByPin(pin4);
+    if(!kioskStaff){
+      setPill("Invalid PIN");
+      setKioskMsg("No active staff found");
+      toast("Invalid PIN");
+      pin4 = "";
+      renderDots();
+      kioskStaff = null;
+      kioskOpenShift = null;
+      $("#btnAction").disabled = true;
+      $("#btnAction").textContent = "Clock In";
+      return;
+    }
+    toast(`Hi, ${kioskStaff.name}`);
+    refreshKioskAction();
+    pin4 = "";
+    renderDots();
+  }
+}
+
+function clearPin(){
+  pin4="";
+  renderDots();
+}
+
+function buildKeypad(){
+  const keys = ["1","2","3","4","5","6","7","8","9","⌫","0","OK"];
+  const kp = $("#keypad");
+  kp.innerHTML="";
+  keys.forEach(k=>{
+    const b = document.createElement("button");
+    b.className="key";
+    b.textContent=k;
+    b.onclick = ()=>{
+      if(k==="⌫"){
+        // backspace for current entry
+        if(pin4.length>0){ pin4=pin4.slice(0,-1); renderDots(); }
+        return;
+      }
+      if(k==="OK"){
+        // OK not needed because we auto lookup at 4 digits; keep for user habit
+        return;
+      }
+      enterDigit(k);
+    };
+    kp.appendChild(b);
+  });
+}
+buildKeypad(); renderDots();
+
+$("#btnClear").onclick = () => { clearPin(); kioskStaff=null; kioskOpenShift=null; $("#btnAction").disabled=true; setPill("Ready"); setKioskMsg(""); };
+
+$("#btnAction").onclick = () => {
+  if(!kioskStaff) return;
+  const now = new Date().toISOString();
+  const open = findOpenShift(kioskStaff.id);
+  if(open){
+    open.out = now;
+    save();
+    toast("Clocked out");
+  } else {
+    state.shifts.push({ id: uid(), staffId: kioskStaff.id, in: now, out: null, editedByManager:false, notes:"" });
+    save();
+    toast("Clocked in");
+  }
+  refreshKioskAction();
+};
+
+/*** Manager gate + tabs ***/
+let managerUnlocked = false;
+let lockTimer = null;
+const AUTO_LOCK_MS = 60 * 1000; // 60s
+
+function resetAutoLock(){
+  if(lockTimer) clearTimeout(lockTimer);
+  if(!managerUnlocked) return;
+  lockTimer = setTimeout(()=> { lockManager(); toast("Manager locked"); }, AUTO_LOCK_MS);
+}
+["click","keydown","touchstart"].forEach(evt => document.addEventListener(evt, resetAutoLock, {passive:true}));
+
+function lockManager(){
+  managerUnlocked = false;
+  show($("#managerCard"), false);
+  show($("#mgrGateCard"), false);
+  show($("#kioskCard"), true);
+  $("#mgrPin").value="";
+  $("#mgrErr").textContent="";
+}
+
+$("#btnManager").onclick = () => {
+  if(needsSetup()){ toast("Set Manager PIN first"); return; }
+  show($("#kioskCard"), false);
+  show($("#mgrGateCard"), true);
+  $("#mgrPin").focus();
+};
+
+$("#mgrCancel").onclick = () => {
+  show($("#mgrGateCard"), false);
+  show($("#kioskCard"), true);
+};
+
+$("#mgrUnlock").onclick = () => {
+  const p = $("#mgrPin").value.trim();
+  const err = $("#mgrErr");
+  err.textContent="";
+  if(p.length!==6 || !isDigits(p)){ err.textContent="Enter 6 digits"; return; }
+  if(hash(p) !== state.settings.managerPinHash){ err.textContent="Wrong PIN"; $("#mgrPin").value=""; return; }
+  managerUnlocked = true;
+  show($("#mgrGateCard"), false);
+  show($("#managerCard"), true);
+  switchTab("staff");
+  toast("Manager unlocked");
+  resetAutoLock();
+};
+
+$("#mgrLock").onclick = () => lockManager();
+
+/*** Staff Management ***/
+let editingStaffId = null;
+
+function renderStaffList(){
+  const list = $("#staffList");
+  const items = state.staff.slice().sort((a,b)=> (a.name||"").localeCompare(b.name||""));
+  if(!items.length){ list.innerHTML = `<div class="muted">No staff yet. Add your first staff above.</div>`; return; }
+
+  list.innerHTML = items.map(s => {
+    const pill = s.isActive ? `<span class="pill">Active</span>` : `<span class="pill">Inactive</span>`;
+    return `
+      <div style="padding:10px 0; border-bottom:1px solid #eee;">
+        <div class="row">
+          <div><strong>${s.name}</strong> <span class="muted">(${fmtGBP(s.rate)}/hr)</span></div>
+          <div class="right">${pill}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  // clickable rows (simple: re-render with click binding)
+  Array.from(list.children).forEach((div, idx) => {
+    div.style.cursor = "pointer";
+    div.onclick = () => loadStaffForEdit(items[idx]);
+  });
+}
+
+function loadStaffForEdit(s){
+  editingStaffId = s.id;
+  $("#sName").value = s.name;
+  $("#sPin").value = ""; // only set if changing
+  $("#sRate").value = String(s.rate);
+  $("#staffDeactivate").disabled = !s.isActive;
+  toast("Editing staff");
+}
+
+function resetStaffForm(){
+  editingStaffId = null;
+  $("#sName").value="";
+  $("#sPin").value="";
+  $("#sRate").value="";
+  $("#staffErr").textContent="";
+  $("#staffDeactivate").disabled = true;
+}
+
+function pinInUse(pin, excludeId=null){
+  const h = hash(pin);
+  return state.staff.some(s => s.id!==excludeId && s.pinHash===h);
+}
+
+$("#staffSave").onclick = () => {
+  const name = $("#sName").value.trim();
+  const pin = $("#sPin").value.trim();
+  const rate = parseFloat($("#sRate").value.trim());
+  const err = $("#staffErr");
+  err.textContent="";
+
+  if(!name){ err.textContent="Name is required"; return; }
+  if(Number.isNaN(rate) || rate<=0){ err.textContent="Hourly rate must be > 0"; return; }
+
+  // For edit: PIN can be blank (means no change). For add: PIN required.
+  if(!editingStaffId){
+    if(pin.length!==4 || !isDigits(pin)){ err.textContent="PIN must be exactly 4 digits"; return; }
+    if(pinInUse(pin)){ err.textContent="That PIN is already used by another staff"; return; }
+    state.staff.push({ id: uid(), name, pinHash: hash(pin), rate, isActive:true });
+    save();
+    toast("Staff added");
+    resetStaffForm();
+    renderStaffList();
+    return;
+  } else {
+    const s = state.staff.find(x => x.id===editingStaffId);
+    if(!s){ err.textContent="Staff not found"; return; }
+    s.name = name;
+    s.rate = rate;
+
+    if(pin){
+      if(pin.length!==4 || !isDigits(pin)){ err.textContent="PIN must be exactly 4 digits"; return; }
+      if(pinInUse(pin, s.id)){ err.textContent="That PIN is already used by another staff"; return; }
+      s.pinHash = hash(pin);
+    }
+    save();
+    toast("Staff updated");
+    resetStaffForm();
+    renderStaffList();
+  }
+};
+
+$("#staffReset").onclick = resetStaffForm;
+
+$("#staffDeactivate").onclick = () => {
+  if(!editingStaffId) return;
+  const s = state.staff.find(x => x.id===editingStaffId);
+  if(!s) return;
+  s.isActive = false;
+  save();
+  toast("Staff deactivated");
+  resetStaffForm();
+  renderStaffList();
+};
+
+/*** Timesheets ***/
+function monthRange(monthStr){
+  // monthStr: YYYY-MM
+  const [y,m] = monthStr.split("-").map(Number);
+  const start = new Date(y, m-1, 1, 0,0,0,0);
+  const end = new Date(y, m, 1, 0,0,0,0);
+  return { start, end };
+}
+
+function buildMonthlyPayroll(monthStr){
+  const {start,end} = monthRange(monthStr);
+  const shifts = state.shifts.filter(sh => {
+    const d = new Date(sh.in);
+    return d>=start && d<end;
+  });
+
+  const byStaff = new Map();
+  let openCount = 0;
+
+  for(const sh of shifts){
+    if(!byStaff.has(sh.staffId)) byStaff.set(sh.staffId, { minutes:0, shifts:0, open:0 });
+    const agg = byStaff.get(sh.staffId);
+    agg.shifts++;
+    if(!sh.out){ agg.open++; openCount++; continue; }
+    agg.minutes += minutesBetween(sh.in, sh.out);
+  }
+
+  const rows = [];
+  for(const s of state.staff){
+    const agg = byStaff.get(s.id) || { minutes:0, shifts:0, open:0 };
+    const hours = agg.minutes/60;
+    const pay = hours * s.rate;
+    rows.push({
+      staffName: s.name,
+      rate: s.rate,
+      totalMinutes: agg.minutes,
+      hhmm: minutesToHHMM(agg.minutes),
+      hours2: money2(hours),
+      pay2: money2(pay),
+      shifts: agg.shifts,
+      open: agg.open
+    });
+  }
+  rows.sort((a,b)=> a.staffName.localeCompare(b.staffName));
+  return { rows, openCount };
+}
+
+function renderTimesheets(){
+  const monthStr = $("#monthPick").value;
+  if(!monthStr){ $("#timesTable").innerHTML = `<div class="muted">Pick a month.</div>`; return; }
+  const {rows, openCount} = buildMonthlyPayroll(monthStr);
+  show($("#timesWarn"), openCount>0);
+
+  $("#timesTable").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Staff</th>
+          <th class="right">Rate</th>
+          <th class="right">Total (HH:MM)</th>
+          <th class="right">Hours</th>
+          <th class="right">Pay</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr>
+            <td>${r.staffName}</td>
+            <td class="right">${fmtGBP(r.rate)}</td>
+            <td class="right">${r.hhmm}</td>
+            <td class="right">${r.hours2.toFixed(2)}</td>
+            <td class="right">${fmtGBP(r.pay2)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+
+  renderOpenShifts(monthStr);
+}
+
+function renderOpenShifts(monthStr){
+  const {start,end} = monthRange(monthStr);
+  const open = state.shifts.filter(sh => {
+    const d = new Date(sh.in);
+    return d>=start && d<end && !sh.out;
+  });
+
+  const box = $("#openShifts");
+  if(!open.length){
+    box.innerHTML = `<div class="muted">No open shifts 👍</div>`;
+    return;
+  }
+
+  box.innerHTML = open.map(sh=>{
+    const s = state.staff.find(x=>x.id===sh.staffId);
+    const name = s ? s.name : "Unknown";
+    return `
+      <div class="card" style="margin:8px 0; border-radius:14px;">
+        <div class="row">
+          <div><strong>${name}</strong></div>
+          <div class="right"><span class="pill">OPEN</span></div>
+        </div>
+        <div class="muted">Clock-in: ${ymd(sh.in)} ${hm(sh.in)}</div>
+        <div style="height:8px"></div>
+        <div class="row">
+          <button class="secondary" onclick="closeShift('${sh.id}')">Close Now</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+window.closeShift = function(shiftId){
+  const sh = state.shifts.find(x=>x.id===shiftId);
+  if(!sh) return;
+  sh.out = new Date().toISOString();
+  sh.editedByManager = true;
+  save();
+  toast("Shift closed");
+  renderTimesheets();
+};
+
+/*** Export CSV + Backup ***/
+function payrollCSV(monthStr){
+  const {rows} = buildMonthlyPayroll(monthStr);
+  const header = ["Month","StaffName","HourlyRate","TotalMinutes","TotalHHMM","TotalHoursDecimal","TotalPay"];
+  const lines = [header.join(",")];
+
+  for(const r of rows){
+    const cells = [
+      monthStr,
+      `"${String(r.staffName).replaceAll('"','""')}"`,
+      r.rate.toFixed(2),
+      String(r.totalMinutes),
+      r.hhmm,
+      r.hours2.toFixed(2),
+      r.pay2.toFixed(2)
+    ];
+    lines.push(cells.join(","));
+  }
+  return lines.join("\n");
+}
+
+function downloadText(filename, text){
+  const blob = new Blob([text], {type:"text/plain;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+$("#btnExportCSV").onclick = () => {
+  const m = $("#exportMonth").value;
+  if(!m){ toast("Pick a month"); return; }
+  const csv = payrollCSV(m);
+  $("#csvOut").value = csv;
+  toast("CSV ready");
+};
+
+$("#btnCopyCSV").onclick = async () => {
+  const txt = $("#csvOut").value;
+  if(!txt){ toast("Nothing to copy"); return; }
+  await navigator.clipboard.writeText(txt);
+  toast("Copied");
+};
+
+$("#btnDownloadCSV").onclick = () => {
+  const m = $("#exportMonth").value || "payroll";
+  const txt = $("#csvOut").value;
+  if(!txt){ toast("Generate CSV first"); return; }
+  downloadText(`payroll_${m}.csv`, txt);
+  toast("Downloaded");
+};
+
+$("#btnBackup").onclick = () => {
+  $("#backupOut").value = JSON.stringify(state, null, 2);
+  toast("Backup generated");
+};
+$("#btnCopyBackup").onclick = async () => {
+  const txt = $("#backupOut").value;
+  if(!txt){ toast("Nothing to copy"); return; }
+  await navigator.clipboard.writeText(txt);
+  toast("Backup copied");
+};
+$("#btnRestore").onclick = () => {
+  const txt = $("#backupOut").value.trim();
+  if(!txt){ toast("Paste backup JSON first"); return; }
+  try{
+    const s = JSON.parse(txt);
+    if(!s.settings || !("managerPinHash" in s.settings)) throw new Error("bad");
+    state = Object.assign(defaultState(), s);
+    save();
+    toast("Restored");
+    // refresh UI
+    lockManager();
+    renderSetup();
+    renderStaffList();
+  } catch(e){
+    toast("Invalid backup JSON");
+  }
+};
+
+$("#btnWipe").onclick = () => {
+  const confirmText = prompt("Type WIPE to delete all data:");
+  if(confirmText !== "WIPE"){ $("#wipeErr").textContent="Cancelled"; return; }
+  localStorage.removeItem(KEY);
+  state = load();
+  $("#wipeErr").textContent="";
+  toast("All data wiped");
+  lockManager();
+  renderSetup();
+  renderStaffList();
+};
+
+/*** Tabs ***/
+function switchTab(which){
+  show($("#paneStaff"), which==="staff");
+  show($("#paneTimes"), which==="times");
+  show($("#paneExport"), which==="export");
+  $("#tabStaff").classList.toggle("secondary", which!=="staff");
+  $("#tabTimes").classList.toggle("secondary", which!=="times");
+  $("#tabExport").classList.toggle("secondary", which!=="export");
+  renderStaffList();
+  if(which==="times") renderTimesheets();
+}
+$("#tabStaff").onclick = ()=> switchTab("staff");
+$("#tabTimes").onclick = ()=> switchTab("times");
+$("#tabExport").onclick = ()=> switchTab("export");
+
+/*** Today summary ***/
+$("#btnQuickToday").onclick = () => {
+  const today = ymd(new Date());
+  const todays = state.shifts.filter(sh => ymd(sh.in)===today);
+  const open = todays.filter(sh=>!sh.out).length;
+  toast(`Today: ${todays.length} shifts, ${open} open`);
+};
+
+/*** Init defaults ***/
+function initMonthPickers(){
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,"0");
+  const val = `${y}-${m}`;
+  $("#monthPick").value = val;
+  $("#exportMonth").value = val;
+}
+$("#refreshTimes").onclick = renderTimesheets;
+
+initMonthPickers();
+renderSetup();
+renderStaffList();
+setPill("Ready");
+setKioskMsg("Add staff in Manager → Staff, then staff can clock in/out with their PIN.");
+</script>
+</body>
+</html>
